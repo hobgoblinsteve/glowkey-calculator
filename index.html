@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glowkey Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one centered calculator body; LCD on top, 4x5 backlit key grid below. */
+:root {
+  --page: #e7e9ee;
+  --body: #f7f8fa;
+  --body-edge: #cfd3dc;
+  --key: #ffffff;
+  --key-edge: #d6dae3;
+  --key-text: #252a35;
+  --muted: #6b7282;
+  --lcd: #1b2230;
+  --lcd-text: #d9f7e8;
+  --lcd-dim: #6f8f84;
+  --glow-num: #ffb547;
+  --glow-op: #3fc7ff;
+  --glow-eq: #39e28c;
+  --glow-fn: #b48cff;
+  --glow-clr: #ff5d6c;
+  --shadow: 0 30px 60px -30px rgba(30, 40, 60, .45);
+  --font-ui: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-lcd: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0e1117; --body: #181c25; --body-edge: #262c39;
+    --key: #222835; --key-edge: #2f3646; --key-text: #e6e9f0; --muted: #8a93a6;
+    --lcd: #0a0e14; --lcd-text: #c8ffe4; --lcd-dim: #4f7568;
+    --shadow: 0 30px 60px -20px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0e1117; --body: #181c25; --body-edge: #262c39;
+  --key: #222835; --key-edge: #2f3646; --key-text: #e6e9f0; --muted: #8a93a6;
+  --lcd: #0a0e14; --lcd-text: #c8ffe4; --lcd-dim: #4f7568;
+  --shadow: 0 30px 60px -20px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--page);
+  color: var(--key-text);
+  font-family: var(--font-ui);
+  display: grid;
+  place-items: center;
+  padding-block: 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+
+.calc {
+  width: 100%;
+  max-width: 360px;
+  background: var(--body);
+  border: 1px solid var(--body-edge);
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+.brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.brand b { font-weight: 600; color: var(--key-text); }
+.led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--glow-eq);
+  box-shadow: 0 0 8px var(--glow-eq);
+}
+
+.lcd {
+  background: var(--lcd);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-family: var(--font-lcd);
+  text-align: right;
+  min-width: 0;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, .55);
+}
+.lcd .expr {
+  color: var(--lcd-dim);
+  font-size: 13px;
+  min-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lcd .value {
+  color: var(--lcd-text);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--lcd-text) 45%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.key {
+  --glow: var(--glow-num);
+  position: relative;
+  appearance: none;
+  border: 1px solid var(--key-edge);
+  background: var(--key);
+  color: var(--key-text);
+  font: 600 22px/1 var(--font-ui);
+  height: 62px;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--key-edge);
+  transition: background-color .45s ease, color .45s ease, box-shadow .45s ease, transform .08s ease, border-color .45s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.key.op  { --glow: var(--glow-op);  color: var(--glow-op); }
+.key.eq  { --glow: var(--glow-eq);  color: var(--glow-eq); }
+.key.fn  { --glow: var(--glow-fn);  color: var(--glow-fn); font-size: 18px; }
+.key.clr { --glow: var(--glow-clr); color: var(--glow-clr); font-size: 18px; }
+.key.zero { grid-column: span 2; }
+
+.key:hover { border-color: color-mix(in srgb, var(--glow) 55%, var(--key-edge)); }
+.key:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+
+/* The light-up state */
+.key.lit {
+  background: var(--glow);
+  color: #10131a;
+  border-color: var(--glow);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--glow), 0 0 22px 4px color-mix(in srgb, var(--glow) 70%, transparent), 0 0 60px 8px color-mix(in srgb, var(--glow) 30%, transparent);
+  transition: background-color .03s, color .03s, box-shadow .03s, transform .05s, border-color .03s;
+}
+/* Pending operator stays softly lit */
+.key.armed {
+  border-color: var(--glow);
+  box-shadow: 0 3px 0 var(--glow), 0 0 14px 1px color-mix(in srgb, var(--glow) 45%, transparent);
+}
+
+.hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key, .key.lit { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<main class="calc" aria-label="Calculator">
+  <div class="brand"><span><b>Glowkey</b> GK-12</span><span class="led" aria-hidden="true"></span></div>
+
+  <div class="lcd" role="status" aria-live="polite">
+    <div class="expr" id="expr">128 ×</div>
+    <div class="value" id="value">12</div>
+  </div>
+
+  <div class="keys" id="keys">
+    <button class="key clr" data-k="clear" id="k-clear">AC</button>
+    <button class="key fn"  data-k="neg"   id="k-neg">±</button>
+    <button class="key fn"  data-k="pct"   id="k-pct">%</button>
+    <button class="key op"  data-k="/"     id="k-div" aria-label="divide">÷</button>
+
+    <button class="key" data-k="7" id="k-7">7</button>
+    <button class="key" data-k="8" id="k-8">8</button>
+    <button class="key" data-k="9" id="k-9">9</button>
+    <button class="key op" data-k="*" id="k-mul" aria-label="multiply">×</button>
+
+    <button class="key" data-k="4" id="k-4">4</button>
+    <button class="key" data-k="5" id="k-5">5</button>
+    <button class="key" data-k="6" id="k-6">6</button>
+    <button class="key op" data-k="-" id="k-sub" aria-label="minus">−</button>
+
+    <button class="key" data-k="1" id="k-1">1</button>
+    <button class="key" data-k="2" id="k-2">2</button>
+    <button class="key" data-k="3" id="k-3">3</button>
+    <button class="key op" data-k="+" id="k-add" aria-label="plus">+</button>
+
+    <button class="key zero" data-k="0" id="k-0">0</button>
+    <button class="key" data-k="." id="k-dot" aria-label="decimal point">.</button>
+    <button class="key eq" data-k="=" id="k-eq" aria-label="equals">=</button>
+  </div>
+
+  <p class="hint">Tap the keys, or type on your keyboard (Enter for =, Esc to clear).</p>
+</main>
+
+<script>
+(() => {
+  const SYM = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+  const exprEl = document.getElementById("expr");
+  const valueEl = document.getElementById("value");
+  const keysEl = document.getElementById("keys");
+
+  // Opens mid-calculation as an example: 128 × 12
+  let cur = "12", prev = 128, op = "*", fresh = false, error = false;
+
+  const apply = (a, b, o) => {
+    switch (o) {
+      case "+": return a + b;
+      case "-": return a - b;
+      case "*": return a * b;
+      case "/": return b === 0 ? NaN : a / b;
+    }
+    return b;
+  };
+
+  const fmt = (n) => {
+    if (!isFinite(n)) return "Error";
+    const r = parseFloat(n.toPrecision(12));
+    const s = Math.abs(r) >= 1e12 || (r !== 0 && Math.abs(r) < 1e-9) ? r.toExponential(6) : String(r);
+    return s;
+  };
+
+  const pretty = (s) => {
+    if (s === "Error" || /e/.test(s)) return s;
+    const [i, d] = s.split(".");
+    const neg = i.startsWith("-");
+    const body = (neg ? i.slice(1) : i).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (neg ? "−" : "") + body + (d !== undefined ? "." + d : "");
+  };
+
+  function render() {
+    valueEl.textContent = error ? "Error" : pretty(cur);
+    exprEl.textContent = op !== null && prev !== null ? `${pretty(fmt(prev))} ${SYM[op]}` : " ";
+    keysEl.querySelectorAll(".op").forEach(b => b.classList.toggle("armed", fresh && b.dataset.k === op));
+  }
+
+  function press(k) {
+    if (error && k !== "clear") { error = false; cur = "0"; prev = null; op = null; fresh = false; }
+    if (/^\d$/.test(k)) {
+      if (fresh || cur === "0") { cur = k; fresh = false; }
+      else if (cur.replace(/[-.]/g, "").length < 12) cur += k;
+    } else if (k === ".") {
+      if (fresh) { cur = "0."; fresh = false; }
+      else if (!cur.includes(".")) cur += ".";
+    } else if (k in SYM) {
+      if (op !== null && !fresh) {
+        const r = apply(prev, parseFloat(cur), op);
+        if (!isFinite(r)) { error = true; render(); return; }
+        cur = fmt(r);
+      }
+      prev = parseFloat(cur); op = k; fresh = true;
+    } else if (k === "=") {
+      if (op === null) return;
+      const r = apply(prev, parseFloat(cur), op);
+      exprEl.textContent = `${pretty(fmt(prev))} ${SYM[op]} ${pretty(cur)} =`;
+      if (!isFinite(r)) { error = true; op = null; prev = null; valueEl.textContent = "Error"; return; }
+      cur = fmt(r); op = null; prev = null; fresh = true;
+      valueEl.textContent = pretty(cur);
+      keysEl.querySelectorAll(".op").forEach(b => b.classList.remove("armed"));
+      return;
+    } else if (k === "clear") {
+      cur = "0"; prev = null; op = null; fresh = false; error = false;
+    } else if (k === "neg") {
+      if (cur !== "0") cur = cur.startsWith("-") ? cur.slice(1) : "-" + cur;
+    } else if (k === "pct") {
+      const v = parseFloat(cur);
+      cur = fmt(prev !== null && (op === "+" || op === "-") ? prev * v / 100 : v / 100);
+    } else if (k === "back") {
+      if (!fresh) cur = cur.length > 1 && !(cur.length === 2 && cur.startsWith("-")) ? cur.slice(0, -1) : "0";
+    }
+    render();
+  }
+
+  const timers = new WeakMap();
+  function light(btn) {
+    if (!btn) return;
+    btn.classList.remove("lit");
+    void btn.offsetWidth; // restart the glow on rapid repeat presses
+    btn.classList.add("lit");
+    clearTimeout(timers.get(btn));
+    timers.set(btn, setTimeout(() => btn.classList.remove("lit"), 160));
+  }
+
+  keysEl.addEventListener("pointerdown", (e) => {
+    const btn = e.target.closest(".key");
+    if (btn) light(btn);
+  });
+  keysEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".key");
+    if (!btn) return;
+    if (e.detail === 0) light(btn); // keyboard activation of a focused button
+    press(btn.dataset.k);
+  });
+
+  const KEYMAP = { Enter: "=", "=": "=", Escape: "clear", c: "clear", C: "clear", "%": "pct", ",": "." };
+  document.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    let k = KEYMAP[e.key] ?? e.key;
+    if (k === "Backspace") { press("back"); return; }
+    if (k === "x" || k === "X") k = "*";
+    const btn = keysEl.querySelector(`[data-k="${CSS.escape(k)}"]`);
+    if (!btn) return;
+    e.preventDefault();
+    light(btn);
+    press(k);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
